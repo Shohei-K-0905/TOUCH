@@ -1,0 +1,68 @@
+{
+  "expo": {
+    "name": "ConnectCare",
+    "slug": "connectcare",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "myapp",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.touch.app",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "写真ライブラリへのアクセスが必要です。お子様の写真、保険証、受給者証の画像をアップロードするために使用します。",
+        "NSCameraUsageDescription": "カメラへのアクセスが必要です。お子様の写真、保険証、受給者証の画像を撮影するために使用します。"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.touch.app",
+      "permissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.CAMERA"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/images/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "写真ライブラリへのアクセスが必要です。お子様の写真、保険証、受給者証の画像をアップロードするために使用します。",
+          "cameraPermission": "カメラへのアクセスが必要です。お子様の写真、保険証、受給者証の画像を撮影するために使用します。"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "locales": {
+      "ja": "./locales/ja.json"
+    },
+    "primaryLocale": "ja",
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "touch-app"
+      }
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "mediaLibrary": {
+      "title": "メディアライブラリへのアクセス",
+      "message": "お子様の写真、保険証、受給者証の画像をアップロードするために、写真ライブラリへのアクセスが必要です。"
+    },
+    "camera": {
+      "title": "カメラへのアクセス",
+      "message": "お子様の写真、保険証、受給者証の画像を撮影するために、カメラへのアクセスが必要です。"
+    }
+  },
+  "imagePicker": {
+    "permissionNeeded": "アクセス許可が必要です",
+    "photoLibraryPermission": "お子様の写真、保険証、受給者証の画像をアップロードするには、写真へのアクセス許可が必要です。",
+    "cancel": "キャンセル",
+    "openSettings": "設定を開く"
+  },
+  "experience": {
+    "needsPermissions": "アクセス許可が必要です",
+    "mediaLibraryPermission": "写真ライブラリへのアクセスが必要です",
+    "cameraPermission": "カメラへのアクセスが必要です",
+    "allow": "許可する",
+    "deny": "拒否する"
+  }
+}
