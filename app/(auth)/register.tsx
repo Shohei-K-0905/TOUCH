@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -21,7 +21,7 @@ import { Mail, Lock, User, Phone } from 'lucide-react-native';
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const { register, isLoading, error } = useAuthStore();
+  const { register, isLoading, error, isAuthenticated } = useAuthStore();
   
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -35,6 +35,12 @@ export default function RegisterScreen() {
     password: '',
     confirmPassword: '',
   });
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.replace('/(tabs)/consultations');
+    }
+  }, [isAuthenticated, router]);
 
   const validateForm = () => {
     let isValid = true;
@@ -84,8 +90,6 @@ export default function RegisterScreen() {
   const handleRegister = async () => {
     if (validateForm()) {
       await register(name, email, phone, password);
-      // 登録成功後、診療画面に遷移
-      router.replace('/(tabs)/consultations');
     }
   };
 

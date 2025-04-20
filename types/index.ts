@@ -55,10 +55,10 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  phone: string;
+  phoneNumber: string; // Match Firestore field name
   birthDate?: string;
   address?: string;
   workplace?: string;
   workplacePhone?: string;
-  children: Child[];
+  children?: Child[]; // Make optional as it might not be in the main doc
 }

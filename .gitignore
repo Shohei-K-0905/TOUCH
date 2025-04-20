@@ -35,3 +35,7 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 .vercel
+
+# .gitignore ファイル
+.env
+GoogleService-Info.plist

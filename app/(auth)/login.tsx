@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -21,7 +21,7 @@ import { Mail, Lock } from 'lucide-react-native';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login, isLoading, error } = useAuthStore();
+  const { login, isLoading, error, isAuthenticated } = useAuthStore();
   
   const [email, setEmail] = useState('demo@example.com');
   const [password, setPassword] = useState('password');
@@ -29,6 +29,12 @@ export default function LoginScreen() {
     email: '',
     password: '',
   });
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.replace('/(tabs)/consultations');
+    }
+  }, [isAuthenticated, router]);
 
   const validateForm = () => {
     let isValid = true;
@@ -57,8 +63,6 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     if (validateForm()) {
       await login(email, password);
-      // ログイン成功後、診療画面に遷移
-      router.replace('/(tabs)/consultations');
     }
   };
 
