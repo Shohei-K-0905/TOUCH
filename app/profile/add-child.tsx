@@ -21,11 +21,15 @@ import { colors } from '@/constants/colors';
 import { useChildStore } from '@/store/child-store';
 import { User, Calendar, AlertCircle, Heart, Plus, CreditCard, FileText } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { useAuthStore } from '@/store/auth-store';
+import { auth, storage } from '@/src/firebase';
 
 export default function AddChildScreen() {
   const router = useRouter();
   const { addChild } = useChildStore();
-  
+  const { user } = useAuthStore();
+
   const [name, setName] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [gender, setGender] = useState<'male' | 'female' | 'other'>('male');
@@ -35,7 +39,7 @@ export default function AddChildScreen() {
   const [insuranceCardImage, setInsuranceCardImage] = useState<string | null>(null);
   const [recipientCertImage, setRecipientCertImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const handleAddPhoto = async () => {
     if (Platform.OS === 'web') {
       alert('写真のアップロードはウェブでは利用できません');
@@ -43,7 +47,6 @@ export default function AddChildScreen() {
     }
     
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync({
-      // Provide a Japanese explanation for the permission request
       iosUseSystemDialog: true
     });
     
@@ -78,7 +81,6 @@ export default function AddChildScreen() {
     }
     
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync({
-      // Provide a Japanese explanation for the permission request
       iosUseSystemDialog: true
     });
     
@@ -113,7 +115,6 @@ export default function AddChildScreen() {
     }
     
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync({
-      // Provide a Japanese explanation for the permission request
       iosUseSystemDialog: true
     });
     
@@ -140,7 +141,26 @@ export default function AddChildScreen() {
       setRecipientCertImage(result.assets[0].uri);
     }
   };
-  
+
+  const uploadImageAsync = async (uri: string, path: string): Promise<string | null> => {
+    try {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      
+      const storageRef = ref(storage, path);
+      const uploadTask = uploadBytesResumable(storageRef, blob);
+
+      await uploadTask; 
+
+      const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+      return downloadURL;
+    } catch (e) {
+      console.error("Upload failed:", e);
+      Alert.alert('アップロードエラー', '画像のアップロードに失敗しました。');
+      return null;
+    }
+  };
+
   const calculateAge = (birthDate: string) => {
     const today = new Date();
     const birth = new Date(birthDate);
@@ -153,30 +173,67 @@ export default function AddChildScreen() {
     
     return age;
   };
-  
-  const handleSave = () => {
+
+  const handleSave = async () => {
     if (!name || !birthDate) {
-      alert('必須項目をすべて入力してください');
+      alert('名前と生年月日は必須項目です');
+      return;
+    }
+    console.log('[handleSave] Start. User object from store:', user);
+    if (!user) {
+      Alert.alert('エラー', 'ユーザー情報が見つかりません。再ログインしてください。');
+      return;
+    }
+    
+    if (!user.id) {
+      console.error('[handleSave] Error: user.id is missing!', user);
+      Alert.alert('エラー', 'ユーザーIDが見つかりません。データの整合性に問題がある可能性があります。');
+      setIsLoading(false);
       return;
     }
     
     setIsLoading(true);
-    
+    let photoURL = photo;
+    let insuranceCardImageURL = insuranceCardImage;
+    let recipientCertImageURL = recipientCertImage;
+    const childId = Date.now().toString();
+    const userId = user.id;
+
     try {
-      const age = calculateAge(birthDate);
+      if (photo && photo.startsWith('file://')) {
+        const path = `child_photos/${userId}/${childId}/photo.jpg`;
+        photoURL = await uploadImageAsync(photo, path);
+        if (!photoURL) throw new Error('Photo upload failed');
+      }
+      if (insuranceCardImage && insuranceCardImage.startsWith('file://')) {
+        const path = `child_documents/${userId}/${childId}/insurance_card.jpg`;
+        insuranceCardImageURL = await uploadImageAsync(insuranceCardImage, path);
+        if (!insuranceCardImageURL) throw new Error('Insurance card upload failed');
+      }
+      if (recipientCertImage && recipientCertImage.startsWith('file://')) {
+        const path = `child_documents/${userId}/${childId}/recipient_cert.jpg`;
+        recipientCertImageURL = await uploadImageAsync(recipientCertImage, path);
+        if (!recipientCertImageURL) throw new Error('Recipient certificate upload failed');
+      }
       
-      addChild({
+      const childData = {
+        id: childId,
+        parentId: userId,
         name,
         birthDate,
-        age,
+        age: calculateAge(birthDate),
         gender,
-        allergies: allergies ? allergies.split(',').map(a => a.trim()) : [],
-        medicalConditions: medicalConditions ? medicalConditions.split(',').map(m => m.trim()) : [],
-        photo: photo || undefined,
-        insuranceCardImage: insuranceCardImage || undefined,
-        recipientCertImage: recipientCertImage || undefined,
-      });
-      
+        allergies: allergies ? allergies.split(',').map(a => a.trim()).filter(a => a) : [],
+        medicalConditions: medicalConditions ? medicalConditions.split(',').map(m => m.trim()).filter(m => m) : [],
+        photo: photoURL,
+        insuranceCardImage: insuranceCardImageURL,
+        recipientCertImage: recipientCertImageURL,
+      };
+
+      console.log('[handleSave] Calling addChild with data:', childData);
+
+      addChild(childData);
+
       router.back();
     } catch (error) {
       console.error('Failed to add child:', error);
@@ -185,11 +242,11 @@ export default function AddChildScreen() {
       setIsLoading(false);
     }
   };
-  
+
   const dismissKeyboard = () => {
     Keyboard.dismiss();
   };
-  
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView 
@@ -388,7 +445,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    paddingBottom: 100, // Extra padding at the bottom to ensure scrollability
+    paddingBottom: 100, 
   },
   photoSection: {
     alignItems: 'center',

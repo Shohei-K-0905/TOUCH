@@ -2,14 +2,16 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Child } from '@/types';
-import { mockChildren } from '@/mocks/data';
+import { db } from '@/src/firebase'; // Import initialized Firestore
+import { collection, doc, setDoc, Timestamp } from 'firebase/firestore';
+import { Alert } from 'react-native';
 
 interface ChildState {
   children: Child[];
   selectedChildId: string | null;
   isLoading: boolean;
   error: string | null;
-  addChild: (child: Omit<Child, 'id'>) => void;
+  addChild: (child: Child) => void;
   updateChild: (id: string, updates: Partial<Child>) => void;
   deleteChild: (id: string) => void;
   selectChild: (id: string) => void;
@@ -24,16 +26,49 @@ export const useChildStore = create<ChildState>()(
       isLoading: false,
       error: null,
       addChild: (child) => {
-        const newChild = {
+        // Set loading state if needed, or handle async elsewhere
+        // Example: set({ isLoading: true, error: null });
+
+        console.log('[addChild] Received child data before conversion:', child);
+        console.log('[addChild] Received birthDate string:', child.birthDate);
+
+        // Parse 'YYYYMMDD' string to 'YYYY-MM-DD' before creating Date object
+        let formattedBirthDate = child.birthDate; // Default to original if format is unexpected
+        if (/^\d{8}$/.test(child.birthDate)) { // Check if it's exactly 8 digits
+          formattedBirthDate = `${child.birthDate.substring(0, 4)}-${child.birthDate.substring(4, 6)}-${child.birthDate.substring(6, 8)}`;
+        }
+        console.log('[addChild] Formatted birthDate string:', formattedBirthDate);
+
+        // Attempt to convert formatted birthDate string to Firestore Timestamp
+        const birthDateTimestamp = Timestamp.fromDate(new Date(formattedBirthDate));
+        console.log('[addChild] Converted birthDate to Timestamp:', birthDateTimestamp);
+
+        // Prepare data for Firestore (replace string date with Timestamp)
+        const childDataForFirestore = {
           ...child,
-          id: Date.now().toString(),
+          birthDate: birthDateTimestamp,
         };
-        set((state) => ({
-          children: [...state.children, newChild],
-          selectedChildId: newChild.id,
-        }));
+
+        const childRef = doc(db, 'children', child.id);
+
+        setDoc(childRef, childDataForFirestore)
+          .then(() => {
+            console.log('Child added to Firestore successfully:', child.id);
+            // Update local state ONLY after successful Firestore write
+            set((state) => ({
+              children: [...state.children, child], // Use original child object with string date for local state
+              selectedChildId: child.id,
+              isLoading: false, // Reset loading state
+            }));
+          })
+          .catch((error) => {
+            console.error('Error adding child to Firestore:', error);
+            Alert.alert('エラー', 'お子様の情報の保存に失敗しました。');
+            set({ isLoading: false, error: 'Failed to save child data' });
+          });
       },
       updateChild: (id, updates) => {
+        // TODO: Implement Firestore update logic
         set((state) => ({
           children: state.children.map((child) =>
             child.id === id ? { ...child, ...updates } : child
@@ -41,6 +76,7 @@ export const useChildStore = create<ChildState>()(
         }));
       },
       deleteChild: (id) => {
+        // TODO: Implement Firestore delete logic
         set((state) => {
           const newChildren = state.children.filter((child) => child.id !== id);
           return {
