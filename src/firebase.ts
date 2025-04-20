@@ -1,6 +1,6 @@
 // src/firebase.ts
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { initializeAuth } from 'firebase/auth'; // Import initializeAuth from standard path
+import { initializeAuth, getReactNativePersistence } from 'firebase/auth'; // Import persistence helper as per runtime warning
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage"; // 画像アップロード用にStorageも追加
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
@@ -43,8 +43,10 @@ try {
   }
 
   console.log('[firebase.ts] Initializing Auth...');
-  auth = initializeAuth(app); 
-  console.log('[firebase.ts] Auth initialized successfully.');
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(ReactNativeAsyncStorage) // Use RN persistence as per runtime warning
+  });
+  console.log('[firebase.ts] Auth initialized with React Native persistence.');
 
   console.log('[firebase.ts] Initializing Firestore...');
   db = getFirestore(app);
