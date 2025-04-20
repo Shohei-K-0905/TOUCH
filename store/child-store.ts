@@ -29,19 +29,17 @@ export const useChildStore = create<ChildState>()(
         // Set loading state if needed, or handle async elsewhere
         // Example: set({ isLoading: true, error: null });
 
-        console.log('[addChild] Received child data before conversion:', child);
-        console.log('[addChild] Received birthDate string:', child.birthDate);
+        // Generate a unique ID for the child if it doesn't have one
+        const childId = child.id || doc(collection(db, 'children')).id; // Use existing ID or generate new one
 
         // Parse 'YYYYMMDD' string to 'YYYY-MM-DD' before creating Date object
         let formattedBirthDate = child.birthDate; // Default to original if format is unexpected
         if (/^\d{8}$/.test(child.birthDate)) { // Check if it's exactly 8 digits
           formattedBirthDate = `${child.birthDate.substring(0, 4)}-${child.birthDate.substring(4, 6)}-${child.birthDate.substring(6, 8)}`;
         }
-        console.log('[addChild] Formatted birthDate string:', formattedBirthDate);
 
         // Attempt to convert formatted birthDate string to Firestore Timestamp
         const birthDateTimestamp = Timestamp.fromDate(new Date(formattedBirthDate));
-        console.log('[addChild] Converted birthDate to Timestamp:', birthDateTimestamp);
 
         // Prepare data for Firestore (replace string date with Timestamp)
         const childDataForFirestore = {
@@ -53,7 +51,6 @@ export const useChildStore = create<ChildState>()(
 
         setDoc(childRef, childDataForFirestore)
           .then(() => {
-            console.log('Child added to Firestore successfully:', child.id);
             // Update local state ONLY after successful Firestore write
             set((state) => ({
               children: [...state.children, child], // Use original child object with string date for local state

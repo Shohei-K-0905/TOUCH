@@ -179,14 +179,12 @@ export default function AddChildScreen() {
       alert('名前と生年月日は必須項目です');
       return;
     }
-    console.log('[handleSave] Start. User object from store:', user);
     if (!user) {
       Alert.alert('エラー', 'ユーザー情報が見つかりません。再ログインしてください。');
       return;
     }
     
     if (!user.id) {
-      console.error('[handleSave] Error: user.id is missing!', user);
       Alert.alert('エラー', 'ユーザーIDが見つかりません。データの整合性に問題がある可能性があります。');
       setIsLoading(false);
       return;
@@ -229,8 +227,6 @@ export default function AddChildScreen() {
         insuranceCardImage: insuranceCardImageURL,
         recipientCertImage: recipientCertImageURL,
       };
-
-      console.log('[handleSave] Calling addChild with data:', childData);
 
       addChild(childData);
 
