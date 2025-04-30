@@ -1,8 +1,9 @@
 export interface Child {
+  parentId: string; // Link to the parent user
   id: string;
   name: string;
   age: number;
-  birthDate: string;
+  birthDate: string; // Store as YYYY-MM-DD string in app state
   gender: 'male' | 'female' | 'other';
   allergies?: string[];
   medicalConditions?: string[];

@@ -25,21 +25,32 @@ export const useChildStore = create<ChildState>()(
       selectedChildId: null,
       isLoading: false,
       error: null,
-      addChild: (child) => {
+      addChild: async (child) => {
         // Set loading state if needed, or handle async elsewhere
         // Example: set({ isLoading: true, error: null });
 
-        // Generate a unique ID for the child if it doesn't have one
         const childId = child.id || doc(collection(db, 'children')).id; // Use existing ID or generate new one
 
-        // Parse 'YYYYMMDD' string to 'YYYY-MM-DD' before creating Date object
-        let formattedBirthDate = child.birthDate; // Default to original if format is unexpected
-        if (/^\d{8}$/.test(child.birthDate)) { // Check if it's exactly 8 digits
-          formattedBirthDate = `${child.birthDate.substring(0, 4)}-${child.birthDate.substring(4, 6)}-${child.birthDate.substring(6, 8)}`;
-        }
+        // The 'child.birthDate' received here should already be in 'YYYY-MM-DD' format
+        // from add-child.tsx's formatDate function. 
+        const formattedBirthDate = child.birthDate; 
 
-        // Attempt to convert formatted birthDate string to Firestore Timestamp
-        const birthDateTimestamp = Timestamp.fromDate(new Date(formattedBirthDate));
+        // Attempt to convert 'YYYY-MM-DD' string to Firestore Timestamp
+        // Ensure the input string is valid before creating a Date
+        let birthDateTimestamp: Timestamp;
+        try {
+          if (!formattedBirthDate || isNaN(new Date(formattedBirthDate).getTime())) {
+            // Handle invalid or empty date string - perhaps default or throw error
+            console.warn(`Invalid or empty birthDate string received: ${formattedBirthDate}. Using current date as fallback.`);
+            birthDateTimestamp = Timestamp.now(); // Or handle as an error
+          } else {
+            birthDateTimestamp = Timestamp.fromDate(new Date(formattedBirthDate));
+          }
+        } catch (dateError) {
+          console.error(`Error converting birthDate string '${formattedBirthDate}' to Date:`, dateError);
+          // Handle the error appropriately - maybe throw or use a default
+          birthDateTimestamp = Timestamp.now(); 
+        }
 
         // Prepare data for Firestore (replace string date with Timestamp)
         const childDataForFirestore = {
@@ -47,10 +58,13 @@ export const useChildStore = create<ChildState>()(
           birthDate: birthDateTimestamp,
         };
 
+        console.log('[child-store] Data being sent to Firestore:', JSON.stringify(childDataForFirestore, null, 2));
+
         const childRef = doc(db, 'children', child.id);
 
-        setDoc(childRef, childDataForFirestore)
+        return setDoc(childRef, childDataForFirestore)
           .then(() => {
+            console.log('[child-store] Firestore write successful for child:', child.id);
             // Update local state ONLY after successful Firestore write
             set((state) => ({
               children: [...state.children, child], // Use original child object with string date for local state
@@ -60,8 +74,11 @@ export const useChildStore = create<ChildState>()(
           })
           .catch((error) => {
             console.error('Error adding child to Firestore:', error);
+            // Also log the data that failed to write
+            console.error('Data that failed:', JSON.stringify(childDataForFirestore, null, 2)); 
             Alert.alert('エラー', 'お子様の情報の保存に失敗しました。');
             set({ isLoading: false, error: 'Failed to save child data' });
+            throw error; // Re-throw the error so handleSave can catch it if necessary
           });
       },
       updateChild: (id, updates) => {

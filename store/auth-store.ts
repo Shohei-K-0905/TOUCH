@@ -25,11 +25,13 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set, get) => {
   const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-    set({ isLoading: true });
+    set({ isLoading: true }); // Start loading
     if (firebaseUser) {
-      set({ firebaseUser, isAuthenticated: true, isLoading: false, error: null });
-      await get()._fetchUserData(firebaseUser.uid);
+      // Set firebaseUser and isAuthenticated, keep isLoading true
+      set({ firebaseUser, isAuthenticated: true, error: null }); 
+      await get()._fetchUserData(firebaseUser.uid); // Fetch user data, which will set isLoading: false
     } else {
+      // User is logged out, set everything to initial state including isLoading: false
       set({ user: null, firebaseUser: null, isAuthenticated: false, isLoading: false, error: null });
     }
   });
@@ -50,18 +52,14 @@ export const useAuthStore = create<AuthState>((set, get) => {
         const userDocRef = doc(db, 'parents', uid);
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists()) {
-          set({ user: userDocSnap.data() as User, isLoading: false });
+          // FirestoreのデータとuidをマージしてUserオブジェクトを作成
+          const userData = { ...userDocSnap.data(), id: uid } as User; 
+          set({ user: userData, isLoading: false }); // idを含むuserデータをセット
         } else {
           console.warn(`User document not found in Firestore for UID: ${uid}`);
-          const basicUser: User = {
-            ...emptyUser,
-            id: uid,
-            email: get().firebaseUser?.email || '',
-            name: get().firebaseUser?.displayName || '',
-            phoneNumber: '', // Add default phoneNumber to conform to User type
-            address: '',     // Add default address to conform to User type
-          };
-          set({ user: basicUser, isLoading: false });
+          // If doc not found, treat as an error or handle appropriately
+          // For now, set user to null and stop loading
+          set({ user: null, error: 'ユーザーデータが見つかりません。', isLoading: false });
         }
       } catch (error) {
         console.error("Error fetching user data from Firestore:", error);
@@ -73,6 +71,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       set({ isLoading: true, error: null });
       try {
         await signInWithEmailAndPassword(auth, email, password);
+        // onAuthStateChanged will handle setting user and isLoading: false after fetch
       } catch (error: any) {
         console.error("Login error:", error);
         let errorMessage = 'ログインに失敗しました。メールアドレスまたはパスワードを確認してください。';
@@ -112,7 +111,9 @@ export const useAuthStore = create<AuthState>((set, get) => {
         const userDocRef = doc(db, 'parents', firebaseUser.uid);
         await setDoc(userDocRef, newUser);
 
-        set({ user: newUser });
+        set({ user: newUser }); // Keep setting user for immediate feedback if desired
+        // Registration successful, onAuthStateChanged will trigger _fetchUserData
+        // which will set the user state and isLoading: false.
       } catch (error: any) {
         console.error("Registration error:", error);
         let errorMessage = '登録に失敗しました。もう一度お試しください。';

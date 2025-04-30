@@ -21,9 +21,11 @@ import { colors } from '@/constants/colors';
 import { useChildStore } from '@/store/child-store';
 import { User, Calendar, AlertCircle, Heart, Plus, CreditCard, FileText } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as Linking from 'expo-linking';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useAuthStore } from '@/store/auth-store';
 import { auth, storage } from '@/src/firebase';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 export default function AddChildScreen() {
   const router = useRouter();
@@ -31,7 +33,8 @@ export default function AddChildScreen() {
   const { user } = useAuthStore();
 
   const [name, setName] = useState('');
-  const [birthDate, setBirthDate] = useState('');
+  const [birthDate, setBirthDate] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [gender, setGender] = useState<'male' | 'female' | 'other'>('male');
   const [allergies, setAllergies] = useState('');
   const [medicalConditions, setMedicalConditions] = useState('');
@@ -46,17 +49,15 @@ export default function AddChildScreen() {
       return;
     }
     
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync({
-      iosUseSystemDialog: true
-    });
-    
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
     if (permissionResult.granted === false) {
       Alert.alert(
         'アクセス許可が必要です',
         'お子様の写真をアップロードするには、写真へのアクセス許可が必要です。設定アプリから許可を変更できます。',
         [
           { text: 'キャンセル', style: 'cancel' },
-          { text: '設定を開く', onPress: () => ImagePicker.openSettings() }
+          { text: '設定を開く', onPress: () => Linking.openSettings() }
         ]
       );
       return;
@@ -75,27 +76,27 @@ export default function AddChildScreen() {
   };
 
   const handleAddInsuranceCard = async () => {
+    console.log('[handleAddInsuranceCard] Function called');
     if (Platform.OS === 'web') {
       alert('写真のアップロードはウェブでは利用できません');
       return;
     }
     
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync({
-      iosUseSystemDialog: true
-    });
-    
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
     if (permissionResult.granted === false) {
       Alert.alert(
         'アクセス許可が必要です',
         '保険証の画像をアップロードするには、写真へのアクセス許可が必要です。設定アプリから許可を変更できます。',
         [
           { text: 'キャンセル', style: 'cancel' },
-          { text: '設定を開く', onPress: () => ImagePicker.openSettings() }
+          { text: '設定を開く', onPress: () => Linking.openSettings() }
         ]
       );
       return;
     }
     
+    console.log('[handleAddInsuranceCard] Launching image library...');
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -104,32 +105,35 @@ export default function AddChildScreen() {
     });
     
     if (!result.canceled) {
+      console.log('[handleAddInsuranceCard] Image selected:', result.assets[0].uri);
       setInsuranceCardImage(result.assets[0].uri);
+    } else {
+      console.log('[handleAddInsuranceCard] Image selection cancelled.');
     }
   };
 
   const handleAddRecipientCert = async () => {
+    console.log('[handleAddRecipientCert] Function called');
     if (Platform.OS === 'web') {
       alert('写真のアップロードはウェブでは利用できません');
       return;
     }
     
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync({
-      iosUseSystemDialog: true
-    });
-    
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
     if (permissionResult.granted === false) {
       Alert.alert(
         'アクセス許可が必要です',
         '受給者証の画像をアップロードするには、写真へのアクセス許可が必要です。設定アプリから許可を変更できます。',
         [
           { text: 'キャンセル', style: 'cancel' },
-          { text: '設定を開く', onPress: () => ImagePicker.openSettings() }
+          { text: '設定を開く', onPress: () => Linking.openSettings() }
         ]
       );
       return;
     }
     
+    console.log('[handleAddRecipientCert] Launching image library...');
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -138,26 +142,74 @@ export default function AddChildScreen() {
     });
     
     if (!result.canceled) {
+      console.log('[handleAddRecipientCert] Image selected:', result.assets[0].uri);
       setRecipientCertImage(result.assets[0].uri);
+    } else {
+      console.log('[handleAddRecipientCert] Image selection cancelled.');
     }
   };
 
   const uploadImageAsync = async (uri: string, path: string): Promise<string | null> => {
+    console.log(`[uploadImageAsync] Starting upload for path: ${path}`);
     try {
-      const response = await fetch(uri);
-      const blob = await response.blob();
-      
-      const storageRef = ref(storage, path);
-      const uploadTask = uploadBytesResumable(storageRef, blob);
+      // 1. Create blob from URI
+      const blob: Blob = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.onload = function () {
+          console.log('[uploadImageAsync] Blob created successfully');
+          resolve(xhr.response);
+        };
+        xhr.onerror = function (e) {
+          console.error('[uploadImageAsync] Blob creation failed:', e);
+          reject(new Error('Blob creation failed'));
+        };
+        xhr.responseType = 'blob';
+        xhr.open('GET', uri, true);
+        xhr.send(null);
+      });
 
-      await uploadTask; 
+      // 2. Upload blob using uploadTask and wrap in a Promise
+      return new Promise((resolve, reject) => { 
+        const storageRef = ref(storage, path);
+        console.log(`[uploadImageAsync] Storage reference created: ${storageRef.fullPath}`);
 
-      const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-      return downloadURL;
-    } catch (e) {
-      console.error("Upload failed:", e);
-      Alert.alert('アップロードエラー', '画像のアップロードに失敗しました。');
-      return null;
+        const uploadTask = uploadBytesResumable(storageRef, blob);
+
+        uploadTask.on('state_changed',
+          (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            console.log(`[uploadImageAsync] Upload is ${progress}% done for ${path}`);
+          },
+          (error) => {
+            console.error(`[uploadImageAsync] Upload failed for ${path}:`, error);
+            if (error.code) {
+              console.error(`[uploadImageAsync] Firebase Error Code: ${error.code}`);
+              console.error(`[uploadImageAsync] Firebase Error Name: ${error.name}`);
+            }
+            // Reject the outer promise on upload error
+            reject(error); 
+          },
+          async () => {
+            // Handle successful uploads on complete
+            console.log(`[uploadImageAsync] Upload successful for ${path}`);
+
+            try {
+              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+              console.log(`[uploadImageAsync] Download URL obtained: ${downloadURL}`);
+              // Resolve the outer promise with the download URL
+              resolve(downloadURL);
+            } catch (getUrlError) {
+              console.error(`[uploadImageAsync] Failed to get download URL for ${path}:`, getUrlError);
+              reject(getUrlError); // Reject if getting URL fails
+            }
+          }
+        );
+      }); // End of the new Promise wrapping uploadTask
+
+    } catch (error) {
+      console.error(`[uploadImageAsync] Error during upload process for ${path}:`, error);
+      Alert.alert('アップロードエラー', `画像のアップロード中にエラーが発生しました: ${(error as Error).message}`);
+      return null; // Indicate failure - Ensure this path returns null
     }
   };
 
@@ -175,51 +227,76 @@ export default function AddChildScreen() {
   };
 
   const handleSave = async () => {
+    console.log('[handleSave] Function called');
     if (!name || !birthDate) {
       alert('名前と生年月日は必須項目です');
+      console.log('[handleSave] Validation Error: Missing name or birthDate');
       return;
     }
     if (!user) {
       Alert.alert('エラー', 'ユーザー情報が見つかりません。再ログインしてください。');
+      console.error('[handleSave] Error: user is missing');
       return;
     }
     
     if (!user.id) {
       Alert.alert('エラー', 'ユーザーIDが見つかりません。データの整合性に問題がある可能性があります。');
+      console.error('[handleSave] Error: user ID is missing');
       setIsLoading(false);
       return;
     }
     
     setIsLoading(true);
-    let photoURL = photo;
-    let insuranceCardImageURL = insuranceCardImage;
-    let recipientCertImageURL = recipientCertImage;
-    const childId = Date.now().toString();
-    const userId = user.id;
+    console.log('[handleSave] setIsLoading(true)');
 
     try {
+      let photoURL = photo;
+      let insuranceCardImageURL = insuranceCardImage;
+      let recipientCertImageURL = recipientCertImage;
+      const childId = Date.now().toString();
+      const userId = user.id;
+
       if (photo && photo.startsWith('file://')) {
+        console.log('[handleSave] Starting photo upload...');
         const path = `child_photos/${userId}/${childId}/photo.jpg`;
         photoURL = await uploadImageAsync(photo, path);
-        if (!photoURL) throw new Error('Photo upload failed');
+        if (!photoURL) {
+          console.error('[handleSave] Photo upload failed, stopping save.');
+          throw new Error('Photo upload failed');
+        }
+        console.log('[handleSave] Photo upload successful:', photoURL);
       }
+
       if (insuranceCardImage && insuranceCardImage.startsWith('file://')) {
+        console.log('[handleSave] Starting insurance card upload...');
         const path = `child_documents/${userId}/${childId}/insurance_card.jpg`;
         insuranceCardImageURL = await uploadImageAsync(insuranceCardImage, path);
-        if (!insuranceCardImageURL) throw new Error('Insurance card upload failed');
+        if (!insuranceCardImageURL) {
+          console.error('[handleSave] Insurance card upload failed, stopping save.');
+          throw new Error('Insurance card upload failed');
+        }
+        console.log('[handleSave] Insurance card upload successful:', insuranceCardImageURL);
       }
+
       if (recipientCertImage && recipientCertImage.startsWith('file://')) {
+        console.log('[handleSave] Starting recipient certificate upload...');
         const path = `child_documents/${userId}/${childId}/recipient_cert.jpg`;
         recipientCertImageURL = await uploadImageAsync(recipientCertImage, path);
-        if (!recipientCertImageURL) throw new Error('Recipient certificate upload failed');
+        if (!recipientCertImageURL) {
+          console.error('[handleSave] Recipient certificate upload failed, stopping save.');
+          throw new Error('Recipient certificate upload failed');
+        }
+        console.log('[handleSave] Recipient certificate upload successful:', recipientCertImageURL);
       }
-      
+
+      const birthDateString = formatDate(birthDate);
+
       const childData = {
         id: childId,
         parentId: userId,
         name,
-        birthDate,
-        age: calculateAge(birthDate),
+        birthDate: birthDateString,
+        age: calculateAge(birthDateString),
         gender,
         allergies: allergies ? allergies.split(',').map(a => a.trim()).filter(a => a) : [],
         medicalConditions: medicalConditions ? medicalConditions.split(',').map(m => m.trim()).filter(m => m) : [],
@@ -228,19 +305,44 @@ export default function AddChildScreen() {
         recipientCertImage: recipientCertImageURL,
       };
 
-      addChild(childData);
+      console.log('[handleSave] Child data prepared:', childData);
+
+      console.log('[handleSave] Calling addChild store function...');
+      await addChild(childData);
+      console.log('[handleSave] addChild store function successful');
 
       router.back();
     } catch (error) {
-      console.error('Failed to add child:', error);
+      console.error('[handleSave] Failed to add child:', error);
       alert('子どもの追加に失敗しました。もう一度お試しください。');
     } finally {
+      console.log('[handleSave] Entering finally block');
       setIsLoading(false);
+      console.log('[handleSave] setIsLoading(false)');
     }
   };
 
   const dismissKeyboard = () => {
     Keyboard.dismiss();
+  };
+
+  const onDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    setShowDatePicker(false); 
+    if (event.type === 'set' && selectedDate) {
+      setBirthDate(selectedDate); 
+    }
+  };
+
+  const showDatepicker = () => {
+    setShowDatePicker(true);
+  };
+
+  const formatDate = (date: Date | null): string => {
+    if (!date) return '';
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   return (
@@ -282,14 +384,29 @@ export default function AddChildScreen() {
                   leftIcon={<User size={20} color={colors.gray} />}
                 />
                 
-                <Input
-                  label="生年月日 *"
-                  placeholder="YYYY-MM-DD"
-                  value={birthDate}
-                  onChangeText={setBirthDate}
-                  leftIcon={<Calendar size={20} color={colors.gray} />}
-                />
-                
+                <Text style={styles.label}>生年月日</Text>
+                <TouchableOpacity onPress={showDatepicker} style={styles.datePickerButton}>
+                  <View style={styles.inputContainer}> 
+                    <Calendar size={20} color={colors.gray} />
+                    <Text style={[styles.datePickerText, !birthDate && styles.placeholderText]}>
+                      {birthDate ? formatDate(birthDate) : 'YYYY-MM-DD'}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                {showDatePicker && (
+                  <DateTimePicker
+                    testID="dateTimePicker"
+                    value={birthDate || new Date()} 
+                    mode={'date'}
+                    is24Hour={true}
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'} 
+                    onChange={onDateChange}
+                    maximumDate={new Date()} 
+                    locale="ja-JP" // Add locale for Japanese format preference
+                  />
+                )}
+
                 <Text style={styles.label}>性別</Text>
                 <View style={styles.genderContainer}>
                   <TouchableOpacity
@@ -553,5 +670,26 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     marginTop: 12,
     marginBottom: 24,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === 'ios' ? 14 : 10, 
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  datePickerButton: {
+    marginBottom: 16, 
+  },
+  datePickerText: {
+    marginLeft: 8,
+    fontSize: 16,
+    color: colors.text, 
+  },
+  placeholderText: {
+    color: colors.gray, 
   },
 });

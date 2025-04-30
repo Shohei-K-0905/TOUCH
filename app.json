@@ -17,7 +17,8 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.touch.app",
+      "bundleIdentifier": "com.touch.telemedicine.app",
+      "buildNumber": "1",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "写真ライブラリへのアクセスが必要です。お子様の写真、保険証、受給者証の画像をアップロードするために使用します。",
