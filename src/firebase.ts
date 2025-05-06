@@ -42,26 +42,45 @@ try {
     console.log('[firebase.ts] Got existing app instance successfully.');
   }
 
-  console.log('[firebase.ts] Initializing Auth...');
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(ReactNativeAsyncStorage) // Use RN persistence as per runtime warning
-  });
-  console.log('[firebase.ts] Auth initialized with React Native persistence.');
+  if (!app) {
+    console.error('[firebase.ts] Firebase app initialization failed!');
+    // Consider how to handle this error, e.g., throw an error or stop execution
+  } else {
+    console.log('[firebase.ts] Firebase app instance is valid.');
 
-  console.log('[firebase.ts] Initializing Firestore...');
-  db = getFirestore(app);
-  console.log('[firebase.ts] Firestore initialized successfully.');
+    console.log('[firebase.ts] Initializing Auth...');
+    try {
+      auth = initializeAuth(app, {
+        persistence: getReactNativePersistence(ReactNativeAsyncStorage) // Use RN persistence as per runtime warning
+      });
+      console.log('[firebase.ts] Auth initialized successfully.');
+    } catch (e) {
+      console.error('[firebase.ts] Auth initialization failed:', e);
+    }
 
-  console.log('[firebase.ts] Initializing Storage...');
-  storage = getStorage(app);
-  console.log('[firebase.ts] Storage initialized successfully.');
+    console.log('[firebase.ts] Initializing Firestore...');
+    try {
+      db = getFirestore(app);
+      console.log('[firebase.ts] Firestore initialized successfully.');
+    } catch (e) {
+      console.error('[firebase.ts] Firestore initialization failed:', e);
+    }
 
-  console.log('[firebase.ts] Exporting modules...');
+    console.log('[firebase.ts] Initializing Storage...');
+    try {
+      storage = getStorage(app);
+      console.log('[firebase.ts] Storage initialized successfully.');
+    } catch (e) {
+      console.error('[firebase.ts] Storage initialization failed:', e);
+    }
+  }
 
 } catch (error) {
-  console.error('[firebase.ts] FATAL ERROR during Firebase initialization:', error);
-  // エラー発生時のフォールバックが必要な場合はここに追加
+  console.error("[firebase.ts] Critical error during Firebase setup:", error);
+  // Consider how to handle this critical error, e.g., show an error message to the user
 }
 
-console.log('[firebase.ts] Script execution finished, exporting...');
-export { app, db, auth, storage }; // エクスポート
+console.log('[firebase.ts] Script execution finished.');
+
+// 初期化されたサービスをエクスポート
+export { db, auth, storage, app };
